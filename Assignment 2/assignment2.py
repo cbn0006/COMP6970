@@ -63,6 +63,7 @@ class Assignment(object):
             image_np = np.array(resized_image)
 
         return pyramid
+    
     '''
     Function:
     Takes a PIL Image list as an input and uses imshow to display the pyramid in a joined, horizontal image.
@@ -95,6 +96,7 @@ class Assignment(object):
         plt.imshow(final_image_np, cmap="gray" if mode == "L" else None)
         plt.axis('off')
         plt.show()
+
     '''
     Function:
     Searches for template within the Gaussian Pyramid (pyramid) and creates a box around a template match in the original image.
@@ -157,6 +159,7 @@ class Assignment(object):
         del draw
 
         return image, count
+    
     '''
     Function:
     Creates a Laplacian Pyramid from the input image.
@@ -178,102 +181,150 @@ class Assignment(object):
         laplacian_pyramid = []
         num_levels = len(gaussian_pyramid)
 
-
+        # For each level, recalculate previous level
         for i in range(num_levels - 1):
-            G_i = gaussian_pyramid[i]
+            # Current Gaussian image
+            gauss_img = gaussian_pyramid[i]
             
-            G_i_plus_1 = gaussian_pyramid[i + 1]
-            G_i_plus_1_expanded = G_i_plus_1.resize(G_i.size, Image.BICUBIC)
+            # Next Gaussian image
+            gauss_img_next = gaussian_pyramid[i + 1]
 
-            G_i_np = np.array(G_i, dtype=np.float32)
-            G_i_plus_1_expanded_np = np.array(G_i_plus_1_expanded, dtype=np.float32)
-            
-            L_i_np = G_i_np - G_i_plus_1_expanded_np
-            
-            L_i_np = np.clip(L_i_np, 0, 255).astype(np.uint8)
+            # Resize Gaussian image
+            gauss_img_next_expanded = gauss_img_next.resize(gauss_img.size, Image.BICUBIC)
 
-            L_i_image = Image.fromarray(L_i_np)
+            # Convert images into np arrays for calculations
+            gauss_img_np = np.array(gauss_img, dtype=np.float32)
+            gauss_img_next_expanded_np = np.array(gauss_img_next_expanded, dtype=np.float32)
 
-            laplacian_pyramid.append(L_i_image)
+            # Computer Laplacian
+            lap_img_np = gauss_img_np - gauss_img_next_expanded_np
+            lap_img_np = np.clip(lap_img_np, 0, 255).astype(np.uint8)
+
+            # Convert back to PIL
+            lap_img = Image.fromarray(lap_img_np)
+
+            # Append to Laplcian Pyramid
+            laplacian_pyramid.append(lap_img)
         
-        G_N = gaussian_pyramid[-1]
-        laplacian_pyramid.append(G_N)
+        # Append last level
+        gauss_img_last = gaussian_pyramid[-1]
+        laplacian_pyramid.append(gauss_img_last)
 
         return laplacian_pyramid
     
+    '''
+    Function:
+    Takes a PIL Image list as an input and uses imshow to display the pyramid in a joined, horizontal image.
+
+    Parameters:
+    Pyramid - A list of PIL Images.
+    '''
     def ShowLaplacianPyramid(self, pyramid):
+        # Initialize for adjusted images
         adjusted_images = []
 
+        # For each level in pyramid, add them to the list
         for i, laplacian_level in enumerate(pyramid):
             laplacian_np = np.array(laplacian_level, dtype=np.float32)
 
+            # If last image, calculate differently
             if i < len(pyramid) - 1:
                 laplacian_display = np.clip(laplacian_np + 128, 0, 255).astype(np.uint8)
             else:
                 laplacian_display = np.clip(laplacian_np, 0, 255).astype(np.uint8)
 
+            # Convert back to np array
             laplacian_image = Image.fromarray(laplacian_display)
             adjusted_images.append(laplacian_image)
 
+        # Total width and height
         total_width = sum(img.size[0] for img in adjusted_images)
         max_height = max(img.size[1] for img in adjusted_images)
 
+        # Create an empty image for pasting
         if adjusted_images[0].mode == 'L':
             final_image = Image.new('L', (total_width, max_height), color=255)
         else:
             final_image = Image.new('RGB', (total_width, max_height), color=(255, 255, 255))
 
+        # Paste
         x_offset = 0
         for img in adjusted_images:
             final_image.paste(img, (x_offset, 0))
             x_offset += img.width
 
+        # Display
         final_image_np = np.array(final_image)
         plt.imshow(final_image_np)
         plt.axis('off')
         plt.show()
 
+    '''
+    Function:
+    Reconstruct Gaussian Pyramid with Laplacian Pyramid
+
+    Parameters:
+    lPyramid - Laplacian Pyramid that will be used to reconstruct the Gaussian Pyramid.
+
+    Returns:
+    gPyramid - The reconstructed Gaussian Pyramid.
+    '''
     def ReconstructGaussianFromLaplacianPyramid(self, lPyramid):
+        # Initialize empty list for Gaussian Pyramid and get number of levels
         gPyramid = []
         num_levels = len(lPyramid)
         
+        # Initialize current level that will be worked on
         current_level = lPyramid[-1]
 
+        # Last level is the same
         gPyramid.insert(0, current_level)
 
+        # (Reverse order) For each level in the laplacian pyramid, reconstruct the correlated Gaussian pyramid level
         for i in range(num_levels - 2, -1, -1):
+            # Current Laplacian level image
             laplacian_level = lPyramid[i]
 
-            current_image_np = np.array(current_level, dtype=np.float32)
-
+            # Convert to np
             laplacian_np = np.array(laplacian_level, dtype=np.float32)
 
+            # Resize the image
             current_image_resized = current_level.resize(laplacian_level.size, Image.BICUBIC)
             current_image_resized_np = np.array(current_image_resized, dtype=np.float32)
 
-            # Add the Laplacian level to the upsampled image
+            # Reconstruct the image
             reconstructed_image_np = current_image_resized_np + laplacian_np
-
-            # Clip values to [0, 255] and convert to uint8
             reconstructed_image_np = np.clip(reconstructed_image_np, 0, 255).astype(np.uint8)
 
-            # Convert the NumPy array back to a PIL Image
+            # Convert to PIL
             reconstructed_image = Image.fromarray(reconstructed_image_np)
 
-            # Insert the reconstructed image at the beginning of the Gaussian pyramid
+            # Insert to front of Gaussian Pyramid
             gPyramid.insert(0, reconstructed_image)
 
-            # Update current_level for the next iteration
+            # Update level
             current_level = reconstructed_image
 
         return gPyramid
     
+    '''
+    Function:
+    Blends two images together using a mask and Laplacian Pyramids of each image.
+
+    Parameters:
+    imageA - The first image.
+    imageB - The second image.
+    mask - The mask used to blend the two images.
+    '''
     def BlendImages(self, imageA, imageB, mask):
+        # Turn mask into Gaussian Pyramid
         gaussian_pyramid_mask = assignment.MakeGaussianPyramid(mask, scale=0.75, minsize=16)
 
+        # Get Laplacian Pyramids for both images
         laplacian_pyramid_A = assignment.MakeLaplacianPyramid(imageA, scale=0.75, minsize=16)
         laplacian_pyramid_B = assignment.MakeLaplacianPyramid(imageB, scale=0.75, minsize=16)
 
+        # For each level in the mask, normalize
         normalized_mask_pyramid = []
         for mask_level in gaussian_pyramid_mask:
             mask_np = np.array(mask_level, dtype=np.float32) / 255.0
@@ -281,31 +332,31 @@ class Assignment(object):
                 mask_np = np.stack([mask_np] * 3, axis=-1)
             normalized_mask_pyramid.append(mask_np)
 
+        # For each level in the images, blend together with respect to the mask
         blended_pyramid = []
         for i in range(len(laplacian_pyramid_A)):
             lapA = np.array(laplacian_pyramid_A[i], dtype=np.float32)
             lapB = np.array(laplacian_pyramid_B[i], dtype=np.float32)
             mask = normalized_mask_pyramid[i]
 
-            # Perform blending: lapA * mask + lapB * (1 - mask)
             blended_lap = lapA * mask + lapB * (1 - mask)
 
-            # Convert the blended result back to a PIL Image
             blended_lap = np.clip(blended_lap, 0, 255).astype(np.uint8)
             blended_image = Image.fromarray(blended_lap)
 
-            # Append the blended image to the blended pyramid
             blended_pyramid.append(blended_image)
 
-        # Reconstruct the final image from the blended Laplacian pyramid
+        # Get image by reconstructing blended Laplacian Pyramid
         reconstructed_image = self.ReconstructGaussianFromLaplacianPyramid(blended_pyramid)
 
-        # Display the final blended image (highest resolution)
+        # Display
         final_image = reconstructed_image[0]
         final_image.show()
         # final_image.save('orchid_violet_blend.jpg')
 
-    # Question 4
+    '''
+    
+    '''
     def ComputeSSD(self, TODOPatch, TODOMask, textureIm, patchL):
         patch_rows, patch_cols, patch_bands = np.shape(TODOPatch)
         tex_rows, tex_cols, tex_bands = np.shape(textureIm)
@@ -323,7 +374,9 @@ class Assignment(object):
             pass
         return SSD
     
-    # Question 5
+    '''
+    
+    '''
     def CopyPatch(self, imHole,TODOMask,textureIm,iPatchCenter,jPatchCenter,iMatchCenter,jMatchCenter,patchL):
         patchSize = 2 * patchL + 1
         imHole = ...
@@ -353,7 +406,7 @@ if __name__ == "__main__":
     # familyPyramid = assignment.MakeGaussianPyramid(family, scale=0.75, minsize=16)
     # assignment.ShowGaussianPyramid(familyPyramid)
 
-    # 1.4
+    # # 1.4
     # result_image, matches = assignment.FindTemplate(judyPyramid, template_image, threshold=0.7)
     # result_image.save('1.4.jpg')
     # print(f'Result image saved. {matches} matches were found.')
