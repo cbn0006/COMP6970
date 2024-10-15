@@ -115,7 +115,7 @@ class Assignment(object):
         count = 0
 
         # Fix the template width and resize based on that
-        template_width = 15
+        template_width = 10
         aspect_ratio = template.size[1] / template.size[0]
         template_resized = template.resize((template_width, int(template_width * aspect_ratio)), Image.BICUBIC)
 
@@ -181,7 +181,7 @@ class Assignment(object):
         laplacian_pyramid = []
         num_levels = len(gaussian_pyramid)
 
-        # For each level, recalculate previous level
+        # For each level + 1, recalculate previous level's Laplacian
         for i in range(num_levels - 1):
             # Current Gaussian image
             gauss_img = gaussian_pyramid[i]
@@ -196,7 +196,7 @@ class Assignment(object):
             gauss_img_np = np.array(gauss_img, dtype=np.float32)
             gauss_img_next_expanded_np = np.array(gauss_img_next_expanded, dtype=np.float32)
 
-            # Computer Laplacian
+            # Compute Laplacian
             lap_img_np = gauss_img_np - gauss_img_next_expanded_np
             lap_img_np = np.clip(lap_img_np, 0, 255).astype(np.uint8)
 
@@ -355,7 +355,17 @@ class Assignment(object):
         # final_image.save('orchid_violet_blend.jpg')
 
     '''
-    
+    Function:
+    Compute the sum square difference between the texture image and a patch at each location in the texture image.
+
+    Parameters:
+    TODOPatch - A patch to be filled.
+    TODOMask - A mask that determines useful and unuseful pixels.
+    textureIM - Image being compared to patch.
+    patchL - Number used to determine the patch size.
+
+    Returns:
+    SSD - An array containing the SSD between a patch and the image.
     '''
     def ComputeSSD(self, TODOPatch, TODOMask, textureIm, patchL):
         patch_rows, patch_cols, patch_bands = np.shape(TODOPatch)
@@ -367,29 +377,46 @@ class Assignment(object):
             for c in range(ssd_cols):
                 # Compute sum square difference between textureIm and TODOPatch
                 # for all pixels where TODOMask = 0, and store the result in SSD
-                #
-                # ADD YOUR CODE HERE
-                #
-                pass
-            pass
+                # Get a patch at (r, c)
+                texture_patch = textureIm[r:r + patch_rows, c:c + patch_cols, :]
+
+                # Compute SSD between patch and image patch
+                difference = (TODOPatch - texture_patch) ** 2
+
+                # Apply mask to each color channel
+                masked_difference = np.sum(difference * (1 - TODOMask[:, :, None]), axis=2)
+                
+                # Store result of SSD for patch at (r, c)
+                SSD[r, c] = np.sum(masked_difference)
         return SSD
     
     '''
-    
+    Function:
+
+    Parameters:
+    imHole - Image that needs to be filled.
+    TODOMask - A mask that determines useful and unuseful pixels.
+    textureIm - unused.
+    iPatchCenter - Center of patch to be filled (row).
+    jPatchCenter - Center of patch to be filled (col).
+    iMatchCenter - unused.
+    jMatchCenter - unused.
+    patchL - Number used to determine the patch size.
     '''
     def CopyPatch(self, imHole,TODOMask,textureIm,iPatchCenter,jPatchCenter,iMatchCenter,jMatchCenter,patchL):
         patchSize = 2 * patchL + 1
-        imHole = ...
         for i in range(patchSize):
             for j in range(patchSize):
                 # Copy the selected patch selectPatch into the image containing
                 # the hole imHole for each pixel where TODOMask = 1.
                 # The patch is centred on iPatchCenter, jPatchCenter in the image imHole
-                #
-                # ADD YOUR CODE HERE
-                #
-                pass
-            pass
+                if TODOMask[i, j] == 1:
+                    # Position for patch
+                    iHole = iPatchCenter - patchL + i
+                    jHole = jPatchCenter - patchL + j
+                    
+                    # Paste patch to pixel in imHole
+                    imHole[iHole, jHole, :] = selectPatch[i, j, :]
         return imHole
     
 if __name__ == "__main__":
@@ -405,6 +432,9 @@ if __name__ == "__main__":
     # family = Image.open('family.jpg')
     # familyPyramid = assignment.MakeGaussianPyramid(family, scale=0.75, minsize=16)
     # assignment.ShowGaussianPyramid(familyPyramid)
+    # fans = Image.open('fans.jpg')
+    # fansPyramid = assignment.MakeGaussianPyramid(fans, scale=0.75, minsize=16)
+    # assignment.ShowGaussianPyramid(fansPyramid)
 
     # # 1.4
     # result_image, matches = assignment.FindTemplate(judyPyramid, template_image, threshold=0.7)
