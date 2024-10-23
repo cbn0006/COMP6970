@@ -80,9 +80,9 @@ if __name__ == "__main__":
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
 
-    symbols = ["MSFT"]
+    symbols = ["TSLA"]
     start_date = "2023-01-01"
-    end_date = "2024-07-01"
+    end_date = "2023-04-01"
     
     for symbol in symbols:
         filename = os.path.join(SAVE_DIR, f"{symbol}_minute_data.csv")

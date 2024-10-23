@@ -156,7 +156,7 @@ def create_new_csv(original_file_path, df, suffix="_advanced"):
         raise
 
 def main():
-    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\AAPL_minute_data.csv'
+    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TSLA_minute_data.csv'
     
     # Step 1: Read the original CSV
     df = read_csv(original_csv)
