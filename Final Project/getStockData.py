@@ -80,7 +80,7 @@ if __name__ == "__main__":
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
 
-    symbols = ["AAPL", "TSLA", "MSFT", "NVDA", "NFLX"]
+    symbols = ["MSFT"]
     start_date = "2023-01-01"
     end_date = "2024-07-01"
     
