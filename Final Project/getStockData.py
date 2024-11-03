@@ -23,10 +23,14 @@ def get_polygon_data(symbol, start_date, end_date):
         return []
 
 def save_to_csv(stock_data, filename):
+    file_exists = os.path.isfile(filename)
     with open(filename, "a", newline='') as csvfile:
-        fieldnames = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+        fieldnames = ['datetime', 'open', 'high', 'low', 'close', 'volume']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
+        if not file_exists:
+            writer.writeheader()  # Write header if file doesn't exist
+            
         for entry in stock_data:
             writer.writerow(entry)
 
@@ -34,7 +38,7 @@ def format_polygon_data(data):
     formatted_data = []
     for result in data:
         formatted_data.append({
-            'timestamp': datetime.fromtimestamp(result['t'] / 1000).strftime('%Y-%m-%d %H:%M:%S'),
+            'datetime': datetime.fromtimestamp(result['t'] / 1000).strftime('%Y-%m-%d %H:%M:%S'),
             'open': result['o'],
             'high': result['h'],
             'low': result['l'],
@@ -85,7 +89,7 @@ if __name__ == "__main__":
     end_date = "2023-04-01"
     
     for symbol in symbols:
-        filename = os.path.join(SAVE_DIR, f"{symbol}_minute_data.csv")
+        filename = os.path.join(SAVE_DIR, f"{symbol}_minute_data_raw.csv")
         print(f"Fetching data for {symbol} and saving to {filename}")
         fetch_and_save_data(symbol, start_date, end_date, filename)
         print(f"Data for {symbol} saved to {filename}")

@@ -54,7 +54,7 @@ def generate_hourly_charts(stock_data, start_date, end_date):
     current_date = datetime.strptime(start_date, '%Y-%m-%d')
     end_date = datetime.strptime(end_date, '%Y-%m-%d')
     
-    SAVE_DIR = "D:\\codyb\\COMP6970_Final_Project_Data\\charts"
+    SAVE_DIR = "D:\\codyb\\COMP6970_Final_Project_Data\\charts\\TSLA"
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
     
@@ -78,21 +78,21 @@ def generate_hourly_charts(stock_data, start_date, end_date):
             ohlc_df = filtered_data[['timestamp', 'open', 'high', 'low', 'close']].copy()
             
             # Define where to save the chart
-            save_path = os.path.join(SAVE_DIR, f"AAPL_Candlestick_{date_str}_{time_interval.replace(':', '')}.png")
+            save_path = os.path.join(SAVE_DIR, f"TSLA_Candlestick_{date_str}_{time_interval.replace(':', '')}.png")
             
             # Plot and save the candlestick chart
-            plot_candlestick(ohlc_df, f"AAPL Candlestick Chart for {date_str} {time_interval} - {interval_minutes} mins", save_path)
+            plot_candlestick(ohlc_df, f"TSLA Candlestick Chart for {date_str} {time_interval} - {interval_minutes} mins", save_path)
         
         # Move to the next day
         current_date += timedelta(days=1)
 
 def main():
     # Load the data from the CSV
-    stock_data = load_data("AAPL_minute_data.csv")
+    stock_data = load_data("TSLA_minute_data.csv")
     
     # Define the date range
-    start_date = "2024-01-01"
-    end_date = "2024-05-01"
+    start_date = "2023-01-01"
+    end_date = "2023-04-01"
     
     # Generate hourly candlestick charts between the given dates
     generate_hourly_charts(stock_data, start_date, end_date)

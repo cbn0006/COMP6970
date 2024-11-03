@@ -59,7 +59,7 @@ def Find_Edge(hole_mask):
     return edge_mask
 
 # Change patchL to change the patch size used (patch size is 2 *patchL + 1)
-patchL = 50
+patchL = 5
 patchSize = 2*patchL+1
 
 # Standard deviation for random patch selection

@@ -117,233 +117,184 @@ def is_bearish_engulfing(prev_row, current_row):
            (current_row['open'] > prev_row['close']) and \
            (current_row['close'] < prev_row['open'])
 
-def is_double_top(df, index, lookback=45, tolerance=0.005, min_separation=5, peak_window=5, min_height_diff=0.01):
-    """
-    Identifies a Double Top chart pattern within a 45-minute window.
-
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data.
-        index (int): The current index in the DataFrame.
-        lookback (int): Number of periods to look back for the pattern (default: 45).
-        tolerance (float): Relative tolerance for the two peaks (default: 0.5%).
-        min_separation (int): Minimum number of periods between the two peaks to avoid overlapping patterns (default: 5).
-        peak_window (int): Number of periods around the peak to check for support line touching (default: 5).
-        min_height_diff (float): Minimum relative height difference between peaks and trough (default: 1%).
-
-    Returns:
-        bool: True if Double Top pattern is identified, else False.
-    """
-    # Ensure there's enough data
-    if index < lookback + 10:
+def is_double_top(df, index, lookback=60, tolerance=0.01):
+    # Initialize the 'Double Top' column if it does not already exist
+    if 'Double Top' not in df.columns:
+        df['Double Top'] = 'None'
+        
+    if index < lookback or index >= len(df) - lookback:
         return False
 
-    # Define the 45-minute window ending at the current index
-    window = df.iloc[index - lookback + 1 : index + 1].reset_index(drop=True)
+    window = df.iloc[index - lookback:index]
 
-    # Identify all peaks (local maxima)
-    peaks = window[(window['high'] > window['high'].shift(1)) & (window['high'] > window['high'].shift(-1))]
-    peak_indices = peaks.index.tolist()
+    peaks = window[window['Peak/Trough'] == 'Peak']
+    if peaks.empty:
+        return False
+    first_peak_idx = peaks.index[0]
+    first_peak_price = window.loc[first_peak_idx, 'close']
 
-    # Iterate through all possible pairs of peaks
-    for i in range(len(peak_indices) - 1):
-        for j in range(i + 1, len(peak_indices)):
-            first_peak_idx = peak_indices[i]
-            second_peak_idx = peak_indices[j]
+    troughs = window[(window.index > first_peak_idx) & (window['Peak/Trough'] == 'Trough')]
+    if troughs.empty:
+        return False
+    trough_idx = troughs.index[0]
 
-            # Ensure peaks are sufficiently separated
-            if second_peak_idx - first_peak_idx < min_separation:
-                continue
+    second_peaks = window[(window.index > trough_idx) & 
+                          (window['Peak/Trough'] == 'Peak')]
+    if second_peaks.empty:
+        return False
+    second_peak_idx = second_peaks.index[0]
 
-            # Get peak values
-            first_peak = window.at[first_peak_idx, 'high']
-            second_peak = window.at[second_peak_idx, 'high']
+    if second_peak_idx + 1 < len(df):
+        df.loc[first_peak_idx:second_peak_idx, 'Double Top'] = 'Double Top'
+        # print(f"Double Top detected from index {first_peak_idx} to {second_peak_idx}")
+        return True
 
-            # Check if peaks are within the specified tolerance
-            if abs(first_peak - second_peak) / first_peak > tolerance:
-                continue
-
-            # Identify the trough between the two peaks
-            trough_window = window.iloc[first_peak_idx + 1 : second_peak_idx]
-            if trough_window.empty:
-                continue
-            trough = trough_window['low'].min()
-
-            # Define the support line as the trough
-            support_line = trough
-
-            # Check if both peaks are distinctly above the support line
-            if (first_peak - support_line) / support_line < min_height_diff:
-                continue
-            if (second_peak - support_line) / support_line < min_height_diff:
-                continue
-
-            # Verify that the trough touches the support line within tolerance
-            if abs(trough - support_line) / support_line > tolerance:
-                continue  # This check ensures the trough is the support line
-
-            # Check that the beginnings and ends of both peaks touch the support line within tolerance
-            # For the first peak
-            start_idx_first_peak = max(0, first_peak_idx - peak_window)
-            end_idx_first_peak = first_peak_idx + peak_window + 1  # +1 to include peak_window periods after
-            first_peak_context = window.iloc[start_idx_first_peak : end_idx_first_peak]
-            # Check if within peak_window periods before and after, the low touches the support line
-            first_peak_touch = any(abs(first_peak_context['low'] - support_line) / support_line <= tolerance)
-
-            if not first_peak_touch:
-                continue
-
-            # For the second peak
-            start_idx_second_peak = max(0, second_peak_idx - peak_window)
-            end_idx_second_peak = second_peak_idx + peak_window + 1
-            second_peak_context = window.iloc[start_idx_second_peak : end_idx_second_peak]
-            second_peak_touch = any(abs(second_peak_context['low'] - support_line) / support_line <= tolerance)
-
-            if not second_peak_touch:
-                continue
-
-            # All conditions met, identify as Double Top
-            return True
-
-    # If no valid Double Top pattern is found
     return False
 
-def is_double_bottom(df, index, lookback=20, tolerance=0.005):
-    """
-    Identifies a Double Bottom chart pattern.
-    
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data.
-        index (int): The current index in the DataFrame.
-        lookback (int): Number of periods to look back for the first trough.
-        tolerance (float): Price tolerance for the two troughs to be considered the same.
-        
-    Returns:
-        bool: True if Double Bottom pattern is identified, else False.
-    """
-    if index < lookback * 2:
-        return False
-    first_trough_idx = df['low'].iloc[index - lookback:index].idxmin()
-    first_trough = df['low'].iloc[first_trough_idx]
-    
-    second_trough_window = df['low'].iloc[first_trough_idx + 1:index + 1]
-    if second_trough_window.empty:
-        return False
-    second_trough_idx = second_trough_window.idxmin()
-    second_trough = df['low'].iloc[second_trough_idx]
-    
-    # Check if the two troughs are within the tolerance
-    return abs(first_trough - second_trough) / first_trough <= tolerance
+
+def is_double_bottom(df, index, lookback=25, tolerance=0.005):
+    print("X")
 
 def is_head_and_shoulders(df, index, lookback=30, tolerance=0.005):
-    """
-    Identifies a Head and Shoulders chart pattern.
-    
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data.
-        index (int): The current index in the DataFrame.
-        lookback (int): Number of periods to look back for the pattern.
-        tolerance (float): Price tolerance for the peaks.
-        
-    Returns:
-        bool: True if Head and Shoulders pattern is identified, else False.
-    """
-    if index < lookback * 3:
-        return False
-    window = df.iloc[index - lookback:index + 1]
-    peaks = window['high'].nlargest(3)
-    if len(peaks) < 3:
-        return False
-    sorted_peaks = peaks.sort_values(ascending=False)
-    head, shoulder1, shoulder2 = sorted_peaks.values
-    # Check if shoulders are approximately equal within tolerance
-    return abs(shoulder1 - shoulder2) / head <= tolerance
+    print("X")
 
 def is_inverse_head_and_shoulders(df, index, lookback=30, tolerance=0.005):
-    """
-    Identifies an Inverse Head and Shoulders chart pattern.
-    
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data.
-        index (int): The current index in the DataFrame.
-        lookback (int): Number of periods to look back for the pattern.
-        tolerance (float): Price tolerance for the troughs.
-        
-    Returns:
-        bool: True if Inverse Head and Shoulders pattern is identified, else False.
-    """
-    if index < lookback * 3:
-        return False
-    window = df.iloc[index - lookback:index + 1]
-    troughs = window['low'].nsmallest(3)
-    if len(troughs) < 3:
-        return False
-    sorted_troughs = troughs.sort_values()
-    head, shoulder1, shoulder2 = sorted_troughs.values
-    # Check if shoulders are approximately equal within tolerance
-    return abs(shoulder1 - shoulder2) / head <= tolerance
+    print("X")
 
-# Check for downtrend length before Bullish Engulfing
-def has_preceding_downtrend(df, current_index, downtrend_length=10):
-    """
-    Checks if there is a preceding downtrend of specified length before the current_index.
+def label_singular_trends(df):
+    trends = []
+    current_trend = None
+    trend_count = 1
     
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data.
-        current_index (int): The current index in the DataFrame.
-        downtrend_length (int): Number of consecutive down minutes required.
-        
-    Returns:
-        bool: True if a downtrend of specified length exists before current_index, else False.
-    """
-    if current_index < downtrend_length:
-        return False
+    # Loop through each row to determine the trend label
+    for i in range(1, len(df)):
+        if df['close'].iloc[i] > df['close'].iloc[i - 1]:
+            # Upward trend
+            if current_trend == 'U':
+                trend_count += 1
+            else:
+                current_trend = 'U'
+                trend_count = 1
+            trends.append(f"{trend_count}{current_trend}")
+        elif df['close'].iloc[i] < df['close'].iloc[i - 1]:
+            # Downward trend
+            if current_trend == 'D':
+                trend_count += 1
+            else:
+                current_trend = 'D'
+                trend_count = 1
+            trends.append(f"{trend_count}{current_trend}")
+        else:
+            # No change in close price, keep the previous trend
+            trends.append(trends[-1] if trends else "1N")
     
-    # Slice the DataFrame to get the preceding downtrend_length minutes
-    preceding = df.iloc[current_index - downtrend_length : current_index]
-    
-    # Check if each close is lower than the previous close
-    return all(preceding['close'].iloc[i] < preceding['close'].iloc[i - 1] for i in range(1, downtrend_length))
+    # Insert None for the first point (no previous data to compare)
+    trends.insert(0, None)
+    df['Singular Trend'] = trends
+    return df
 
-# Uptrend for Bearish Engulfing
-def has_preceding_uptrend(df, current_index, downtrend_length=10):
-    """
-    Checks if there is a preceding downtrend of specified length before the current_index.
-    
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data.
-        current_index (int): The current index in the DataFrame.
-        downtrend_length (int): Number of consecutive down minutes required.
-        
-    Returns:
-        bool: True if a downtrend of specified length exists before current_index, else False.
-    """
-    if current_index < downtrend_length:
-        return False
-    
-    # Slice the DataFrame to get the preceding downtrend_length minutes
-    preceding = df.iloc[current_index - downtrend_length : current_index]
-    
-    # Check if each close is lower than the previous close
-    return all(preceding['close'].iloc[i] < preceding['close'].iloc[i - 1] for i in range(1, downtrend_length))
+def detect_support_lines(df):
+    support_lines = ['None'] * len(df)
 
-def label_patterns(df):
+    for i in range(3, len(df) - 1):
+        # Check for a valley or trough followed by an upward trend
+        if df['Peak/Trough'].iloc[i] in ['Trough']:
+            # Check if there is an upward trend immediately after the valley/trough
+            if 'U' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 1][0]) >= 1:
+                # Set the support line at the closing price of the valley/trough
+                support_price = df['close'].iloc[i]
+                
+                # Mark this support line in the column
+                support_lines[i] = support_price
+
+    # Add the support line levels to the DataFrame
+    df['Support Line'] = support_lines
+    return df
+
+def label_plateaus_valleys(df, tolerance=0.0005):
+    plateau_valley_labels = ['None'] * len(df)
+
+    for i in range(len(df) - 5):
+        # Check for a Plateau
+        if i >= 3:
+            if 'U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3:
+                close_prices = df['close'].iloc[i:i + 5].reset_index(drop=True)
+                
+                # Ensure all five closing prices are within tolerance
+                if all(abs((close_prices[j] - close_prices[j - 1]) / close_prices[j - 1]) <= tolerance for j in range(1, 5)):
+                    # Check if the 5th price is within tolerance of the 1st price
+                    if abs((close_prices.iloc[-1] - close_prices.iloc[0]) / close_prices.iloc[0]) <= tolerance:
+                        # Label each of these five points as 'Plateau'
+                        for j in range(i, i + 5):
+                            plateau_valley_labels[j] = 'Plateau'
+
+        # Check for a Valley
+        if i >= 3:
+            if 'D' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3:
+                close_prices = df['close'].iloc[i:i + 5].reset_index(drop=True)
+                
+                # Ensure all five closing prices are within tolerance
+                if all(abs((close_prices[j] - close_prices[j - 1]) / close_prices[j - 1]) <= tolerance for j in range(1, 5)):
+                    # Check if the 5th price is within tolerance of the 1st price
+                    if abs((close_prices.iloc[-1] - close_prices.iloc[0]) / close_prices.iloc[0]) <= tolerance:
+                        # Label each of these five points as 'Valley'
+                        for j in range(i, i + 5):
+                            plateau_valley_labels[j] = 'Valley'
+
+    # Add the labels to the DataFrame
+    df['Plateau/Valley'] = plateau_valley_labels
+    return df
+
+def label_peaks_troughs(df):
     """
-    Labels each row in the DataFrame with identified technical analysis patterns.
+    Labels each row in the DataFrame with 'Peak' or 'Trough' based on trend conditions.
+    
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing stock data with trend labels.
+        
+    Returns:
+        pd.DataFrame: DataFrame with an additional 'Peak/Trough' column.
+    """
+    peak_trough_labels = []
+    
+    for i in range(len(df)):
+        label = 'None'  # Default label
+
+        # Check for a peak
+        if i >= 3 and i <= len(df) - 4:  # Ensure there is enough data before and after
+            # Check if current point qualifies as a peak
+            if ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
+                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
+                label = 'Peak'
+        
+        # Check for a trough
+        if i >= 3 and i <= len(df) - 4:  # Ensure there is enough data before and after
+            # Check if current point qualifies as a trough
+            if ('D' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
+                'U' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
+                label = 'Trough'
+        
+        peak_trough_labels.append(label)
+    
+    # Add the labels to the DataFrame
+    df['Peak/Trough'] = peak_trough_labels
+    return df
+
+def label_candles(df):
+    """
+    Labels each row in the DataFrame with identified individual candlestick patterns.
     
     Parameters:
         df (pd.DataFrame): The DataFrame containing stock data.
         
     Returns:
-        pd.DataFrame: DataFrame with additional 'Candlestick Pattern' and 'Chart Pattern' columns.
+        pd.DataFrame: DataFrame with an additional 'Candlestick Pattern' column.
     """
     candlestick_patterns = []
-    chart_patterns = []
     df = df.reset_index(drop=True)
     
     for i in range(len(df)):
-        # Initialize patterns
-        candlestick_pattern = 'None'
-        chart_pattern = 'None'
+        candlestick_pattern = 'None'  # Default pattern
         current_row = df.loc[i]
         
         # ----- Identify Candlestick Patterns -----
@@ -368,33 +319,8 @@ def label_patterns(df):
                 candlestick_pattern = 'Bearish Engulfing'
         
         candlestick_patterns.append(candlestick_pattern)
-
-        # if 'Bullish Engulfing' in candlestick_pattern:
-        #     if has_preceding_downtrend(df, i, downtrend_length=10):
-        #         chart_pattern = f'Bullish Engulfing with {downtrend_length}-min Downtrend'
-        #     else:
-        #         chart_pattern = 'Bullish Engulfing without Significant Downtrend'
-        
-        # ----- Identify Chart Patterns -----
-        # Double Top
-        if is_double_top(df, i):
-            chart_pattern = 'Double Top'
-        # Double Bottom
-        # elif is_double_bottom(df, i):
-        #     chart_pattern = 'Double Bottom'
-        # # Head and Shoulders
-        # elif is_head_and_shoulders(df, i):
-        #     chart_pattern = 'Head and Shoulders'
-        # # Inverse Head and Shoulders
-        # elif is_inverse_head_and_shoulders(df, i):
-        #     chart_pattern = 'Inverse Head and Shoulders'
-        
-        chart_patterns.append(chart_pattern)
-        if i % 10000 == 0:
-            print(i)
     
     df['Candlestick Pattern'] = candlestick_patterns
-    df['Chart Pattern'] = chart_patterns
     return df
 
 def create_new_csv(original_file_path, df, suffix="_labeled"):
@@ -420,18 +346,75 @@ def create_new_csv(original_file_path, df, suffix="_labeled"):
         print(f"An error occurred while writing the new CSV: {e}")
         raise
 
+def label_trends_with_segments(df, threshold=0.005, trend_strength_threshold=3):
+    trends = []
+    current_trend = None
+    trend_count = 1
+    cumulative_trend = 0
+
+    for i in range(1, len(df)):
+        price_change = (df['close'].iloc[i] - df['close'].iloc[i - 1]) / df['close'].iloc[i - 1]
+
+        if price_change > threshold:
+            # Upward trend detected
+            if current_trend == 'U':
+                trend_count += 1
+            else:
+                current_trend = 'U'
+                trend_count = 1
+            cumulative_trend += 1  # Increase cumulative upward trend
+
+            if cumulative_trend >= trend_strength_threshold:
+                trends.append(f"{trend_count}{current_trend}")
+                cumulative_trend = 0  # Reset cumulative trend after segment
+
+        elif price_change < -threshold:
+            # Downward trend detected
+            if current_trend == 'D':
+                trend_count += 1
+            else:
+                current_trend = 'D'
+                trend_count = 1
+            cumulative_trend -= 1  # Increase cumulative downward trend
+
+            if abs(cumulative_trend) >= trend_strength_threshold:
+                trends.append(f"{trend_count}{current_trend}")
+                cumulative_trend = 0  # Reset cumulative trend after segment
+
+        else:
+            # No significant change, continue with previous trend
+            trends.append(trends[-1] if trends else "1N")
+
+    # Initialize first trend as None and assign to DataFrame
+    trends.insert(0, None)
+    df['Segmented Trend'] = trends
+    return df
+
 def main():
     # Specify the path to your advanced CSV file
-    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TSLA_minute_data_advanced.csv'
+    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TSLA_minute_data_cleaned.csv'
     
     # Step 1: Read the advanced CSV
     df = read_csv(original_csv)
+
+    # Step 2.1: Label the candlesticks
+    df = label_candles(df)
     
-    # Step 2: Label the data with candlestick and chart patterns
-    df_labeled = label_patterns(df)
+    # Step 2.2: Label the data with trends
+    df = label_singular_trends(df)
+
+    # Step 2.3: Label peaks and troughs based on trends
+    df = label_peaks_troughs(df)
+    df = label_plateaus_valleys(df)
+    df = detect_support_lines(df)
+    
+    # Step 2.4: Label the data with candlestick and chart patterns
+    df['Double Top'] = None
+    for index in range(len(df)):
+        is_double_top(df, index)
     
     # Step 3: Create the new labeled CSV
-    create_new_csv(original_csv, df_labeled)
+    create_new_csv(original_csv, df)
 
 if __name__ == "__main__":
     main()
