@@ -1,5 +1,8 @@
 import pandas as pd
 import os
+from ta.trend import ADXIndicator
+from ta import trend, momentum, volatility, volume
+import numpy as np
 
 def read_csv(file_path):
     """
@@ -189,7 +192,7 @@ def label_singular_trends(df):
             trends.append(trends[-1] if trends else "1N")
     
     # Insert None for the first point (no previous data to compare)
-    trends.insert(0, None)
+    trends.insert(0, 'None')
     df['Singular Trend'] = trends
     return df
 
@@ -245,31 +248,30 @@ def label_plateaus_valleys(df, tolerance=0.0005):
     df['Plateau/Valley'] = plateau_valley_labels
     return df
 
+# Edit peaks and troughs with more conditional logic. Extrapolate out more stats for advanced trend analysis and add that to labeling decisions.
 def label_peaks_troughs(df):
-    """
-    Labels each row in the DataFrame with 'Peak' or 'Trough' based on trend conditions.
-    
-    Parameters:
-        df (pd.DataFrame): The DataFrame containing stock data with trend labels.
-        
-    Returns:
-        pd.DataFrame: DataFrame with an additional 'Peak/Trough' column.
-    """
     peak_trough_labels = []
     
     for i in range(len(df)):
-        label = 'None'  # Default label
+        label = 'None'
 
         # Check for a peak
-        if i >= 3 and i <= len(df) - 4:  # Ensure there is enough data before and after
-            # Check if current point qualifies as a peak
+        if i >= 3 and i <= len(df) - 4:
             if ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
                 'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
                 label = 'Peak'
+            # Make these elif statements robust for better labeling
+            elif ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
+                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
+                label = 'Peak'
+            elif ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
+                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
+                label = 'Peak'
+            elif ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
+                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
+                label = 'Peak'
         
-        # Check for a trough
-        if i >= 3 and i <= len(df) - 4:  # Ensure there is enough data before and after
-            # Check if current point qualifies as a trough
+        if i >= 3 and i <= len(df) - 4:
             if ('D' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
                 'U' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
                 label = 'Trough'
@@ -346,48 +348,62 @@ def create_new_csv(original_file_path, df, suffix="_labeled"):
         print(f"An error occurred while writing the new CSV: {e}")
         raise
 
-def label_trends_with_segments(df, threshold=0.005, trend_strength_threshold=3):
+def label_advanced_trends(df, threshold=0.005, short_window=3, long_window=10, rsi_threshold=70, adx_threshold=20):
     trends = []
-    current_trend = None
-    trend_count = 1
-    cumulative_trend = 0
 
+    # Compute Short and Long Moving Averages
+    df['SMA_Short'] = df['close'].rolling(window=short_window).mean().round(3)
+    df['SMA_Long'] = df['close'].rolling(window=long_window).mean().round(3)
+    
+    # Calculate RSI
+    # df['RSI'] = momentum.RSIIndicator(close=df['close'], window=14).rsi().round(3)
+    
+    # Calculate ADX
+    # adx_indicator = ADXIndicator(high=df['high'], low=df['low'], close=df['close'], window=14)
+    # df['ADX'] = adx_indicator.adx().round(3)
+    
     for i in range(1, len(df)):
-        price_change = (df['close'].iloc[i] - df['close'].iloc[i - 1]) / df['close'].iloc[i - 1]
-
-        if price_change > threshold:
-            # Upward trend detected
-            if current_trend == 'U':
-                trend_count += 1
-            else:
-                current_trend = 'U'
-                trend_count = 1
-            cumulative_trend += 1  # Increase cumulative upward trend
-
-            if cumulative_trend >= trend_strength_threshold:
-                trends.append(f"{trend_count}{current_trend}")
-                cumulative_trend = 0  # Reset cumulative trend after segment
-
-        elif price_change < -threshold:
-            # Downward trend detected
-            if current_trend == 'D':
-                trend_count += 1
-            else:
-                current_trend = 'D'
-                trend_count = 1
-            cumulative_trend -= 1  # Increase cumulative downward trend
-
-            if abs(cumulative_trend) >= trend_strength_threshold:
-                trends.append(f"{trend_count}{current_trend}")
-                cumulative_trend = 0  # Reset cumulative trend after segment
-
+        # Moving Average Crossover
+        if df['SMA_Short'].iloc[i] > df['SMA_Long'].iloc[i]:
+            ma_trend = 'U'
+        elif df['SMA_Short'].iloc[i] < df['SMA_Long'].iloc[i]:
+            ma_trend = 'D'
         else:
-            # No significant change, continue with previous trend
-            trends.append(trends[-1] if trends else "1N")
+            ma_trend = 'N'
 
-    # Initialize first trend as None and assign to DataFrame
-    trends.insert(0, None)
-    df['Segmented Trend'] = trends
+        # RSI-based Trend
+        if df['RSI'].iloc[i] > rsi_threshold:
+            rsi_trend = 'D'
+        elif df['RSI'].iloc[i] < (100 - rsi_threshold):
+            rsi_trend = 'U'
+        else:
+            rsi_trend = 'N'
+
+        # ADX for Trend Strength
+        adx_strong = df['ADX'].iloc[i] > adx_threshold
+
+        # Minute-by-Minute Trend
+        price_change = (df['close'].iloc[i] - df['close'].iloc[i - 1]) / df['close'].iloc[i - 1]
+        if price_change > threshold:
+            min_trend = 'U'
+        elif price_change < -threshold:
+            min_trend = 'D'
+        else:
+            min_trend = 'N'
+
+        # Advanced Trend Decision: Combine Indicators
+        if ma_trend == rsi_trend == min_trend:
+            trend = f"{ma_trend} Strong" if adx_strong else f"{ma_trend} Weak"
+        elif ma_trend == rsi_trend:
+            trend = f"{ma_trend} Moderate" if adx_strong else f"{ma_trend} Weak"
+        else:
+            trend = f"{min_trend} Moderate" if adx_strong else min_trend
+
+        trends.append(trend)
+
+    # Pad the trends list to match DataFrame length
+    trends.insert(0, 'None')
+    df['Advanced Trend'] = trends
     return df
 
 def main():
@@ -407,6 +423,7 @@ def main():
     df = label_peaks_troughs(df)
     df = label_plateaus_valleys(df)
     df = detect_support_lines(df)
+    df = label_advanced_trends(df)
     
     # Step 2.4: Label the data with candlestick and chart patterns
     df['Double Top'] = None
