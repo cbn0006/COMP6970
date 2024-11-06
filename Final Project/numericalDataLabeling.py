@@ -70,7 +70,6 @@ def is_shooting_star(row):
     upper_shadow = row['high'] - row['close'] if row['close'] > row['open'] else row['high'] - row['open']
     return upper_shadow > 2 * body and row['close'] < row['open']
 
-# Also, look into 5 minute, 10 minute downward patterns to engulfing candlestick.
 def is_bullish_engulfing_strong(prev_row, current_row):
     """
     Identifies a Bullish Engulfing candlestick pattern.
@@ -248,36 +247,53 @@ def label_plateaus_valleys(df, tolerance=0.0005):
     df['Plateau/Valley'] = plateau_valley_labels
     return df
 
-# Edit peaks and troughs with more conditional logic. Extrapolate out more stats for advanced trend analysis and add that to labeling decisions.
 def label_peaks_troughs(df):
-    peak_trough_labels = []
-    
-    for i in range(len(df)):
-        label = 'None'
+    peak_trough_labels = ['None'] * len(df)
 
-        # Check for a peak
-        if i >= 3 and i <= len(df) - 4:
-            if ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
-                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
-                label = 'Peak'
-            # Make these elif statements robust for better labeling
-            elif ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
-                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
-                label = 'Peak'
-            elif ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
-                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
-                label = 'Peak'
-            elif ('U' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
-                'D' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
-                label = 'Peak'
-        
-        if i >= 3 and i <= len(df) - 4:
-            if ('D' in df['Singular Trend'].iloc[i - 1] and int(df['Singular Trend'].iloc[i - 1][0]) >= 3 and
-                'U' in df['Singular Trend'].iloc[i + 1] and int(df['Singular Trend'].iloc[i + 3][0]) == 3):
-                label = 'Trough'
-        
-        peak_trough_labels.append(label)
-    
+    for i in range(1, len(df) - 1):
+        # Get previous, current, and next price
+        prev_price = df['close'].iloc[i - 1]
+        curr_price = df['close'].iloc[i]
+        next_price = df['close'].iloc[i + 1]
+
+        if curr_price > prev_price and curr_price > next_price:
+            # Count how many previous values this peak is greater than
+            X = 0
+            for j in range(i - 1, -1, -1):
+                if df['close'].iloc[j] < curr_price:
+                    X += 1
+                else:
+                    break
+
+            # Count how many subsequent values this peak is greater than
+            Y = 0
+            for j in range(i + 1, len(df)):
+                if df['close'].iloc[j] < curr_price:
+                    Y += 1
+                else:
+                    break
+
+            peak_trough_labels[i] = f"{X}Peak{Y}"
+
+        elif curr_price < prev_price and curr_price < next_price:
+            # Count how many previous values this trough is lower than
+            X = 0
+            for j in range(i - 1, -1, -1):
+                if df['close'].iloc[j] > curr_price:
+                    X += 1
+                else:
+                    break
+
+            # Count how many subsequent values this trough is lower than
+            Y = 0
+            for j in range(i + 1, len(df)):
+                if df['close'].iloc[j] > curr_price:
+                    Y += 1
+                else:
+                    break
+
+            peak_trough_labels[i] = f"{X}Trough{Y}"
+
     # Add the labels to the DataFrame
     df['Peak/Trough'] = peak_trough_labels
     return df
@@ -348,64 +364,6 @@ def create_new_csv(original_file_path, df, suffix="_labeled"):
         print(f"An error occurred while writing the new CSV: {e}")
         raise
 
-def label_advanced_trends(df, threshold=0.005, short_window=3, long_window=10, rsi_threshold=70, adx_threshold=20):
-    trends = []
-
-    # Compute Short and Long Moving Averages
-    df['SMA_Short'] = df['close'].rolling(window=short_window).mean().round(3)
-    df['SMA_Long'] = df['close'].rolling(window=long_window).mean().round(3)
-    
-    # Calculate RSI
-    # df['RSI'] = momentum.RSIIndicator(close=df['close'], window=14).rsi().round(3)
-    
-    # Calculate ADX
-    # adx_indicator = ADXIndicator(high=df['high'], low=df['low'], close=df['close'], window=14)
-    # df['ADX'] = adx_indicator.adx().round(3)
-    
-    for i in range(1, len(df)):
-        # Moving Average Crossover
-        if df['SMA_Short'].iloc[i] > df['SMA_Long'].iloc[i]:
-            ma_trend = 'U'
-        elif df['SMA_Short'].iloc[i] < df['SMA_Long'].iloc[i]:
-            ma_trend = 'D'
-        else:
-            ma_trend = 'N'
-
-        # RSI-based Trend
-        if df['RSI'].iloc[i] > rsi_threshold:
-            rsi_trend = 'D'
-        elif df['RSI'].iloc[i] < (100 - rsi_threshold):
-            rsi_trend = 'U'
-        else:
-            rsi_trend = 'N'
-
-        # ADX for Trend Strength
-        adx_strong = df['ADX'].iloc[i] > adx_threshold
-
-        # Minute-by-Minute Trend
-        price_change = (df['close'].iloc[i] - df['close'].iloc[i - 1]) / df['close'].iloc[i - 1]
-        if price_change > threshold:
-            min_trend = 'U'
-        elif price_change < -threshold:
-            min_trend = 'D'
-        else:
-            min_trend = 'N'
-
-        # Advanced Trend Decision: Combine Indicators
-        if ma_trend == rsi_trend == min_trend:
-            trend = f"{ma_trend} Strong" if adx_strong else f"{ma_trend} Weak"
-        elif ma_trend == rsi_trend:
-            trend = f"{ma_trend} Moderate" if adx_strong else f"{ma_trend} Weak"
-        else:
-            trend = f"{min_trend} Moderate" if adx_strong else min_trend
-
-        trends.append(trend)
-
-    # Pad the trends list to match DataFrame length
-    trends.insert(0, 'None')
-    df['Advanced Trend'] = trends
-    return df
-
 def main():
     # Specify the path to your advanced CSV file
     original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TSLA_minute_data_cleaned.csv'
@@ -413,25 +371,39 @@ def main():
     # Step 1: Read the advanced CSV
     df = read_csv(original_csv)
 
-    # Step 2.1: Label the candlesticks
-    df = label_candles(df)
-    
-    # Step 2.2: Label the data with trends
-    df = label_singular_trends(df)
+    # Extract unique dates to process data on a day-by-day basis
+    unique_dates = df['datetime'].dt.date.unique()
+    daily_results = []
 
-    # Step 2.3: Label peaks and troughs based on trends
-    df = label_peaks_troughs(df)
-    df = label_plateaus_valleys(df)
-    df = detect_support_lines(df)
-    df = label_advanced_trends(df)
+    # Process each date individually
+    for date in unique_dates:
+        # Filter the data for the current day
+        day_df = df[df['datetime'].dt.date == date].copy()
+        
+        # Step 2.1: Label the candlesticks for the day
+        day_df = label_candles(day_df)
+        
+        # Step 2.2: Label the data with trends for the day
+        day_df = label_singular_trends(day_df)
+
+        # Step 2.3: Label peaks and troughs, plateaus and valleys, and support lines for the day
+        day_df = label_peaks_troughs(day_df)
+        day_df = label_plateaus_valleys(day_df)
+        day_df = detect_support_lines(day_df)
+        
+        # Step 2.4: Detect double top patterns for the day
+        day_df['Double Top'] = 'None'
+        for index in range(len(day_df)):
+            is_double_top(day_df, index)
+
+        # Append the processed day data to the results list
+        daily_results.append(day_df)
     
-    # Step 2.4: Label the data with candlestick and chart patterns
-    df['Double Top'] = None
-    for index in range(len(df)):
-        is_double_top(df, index)
+    # Concatenate all daily results back into a single DataFrame
+    result_df = pd.concat(daily_results, ignore_index=True)
     
-    # Step 3: Create the new labeled CSV
-    create_new_csv(original_csv, df)
+    # Step 3: Create the new labeled CSV with all days combined
+    create_new_csv(original_csv, result_df)
 
 if __name__ == "__main__":
     main()
