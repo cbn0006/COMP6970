@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     symbols = ["TSLA"]
     start_date = "2023-01-01"
-    end_date = "2023-04-01"
+    end_date = "2023-02-01"
     
     for symbol in symbols:
         filename = os.path.join(SAVE_DIR, f"{symbol}_minute_data_raw.csv")

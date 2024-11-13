@@ -3,6 +3,7 @@ import os
 from ta.trend import ADXIndicator
 from ta import trend, momentum, volatility, volume
 import numpy as np
+from sklearn.linear_model import LinearRegression
 
 def read_csv(file_path):
     """
@@ -189,6 +190,35 @@ def label_candles(df):
         candlestick_patterns.append(candlestick_pattern)
     
     df['Candlestick Pattern'] = candlestick_patterns
+    return df
+
+def label_bullish_bearish(df, window=20):
+    labels = ["None"] * len(df)
+    
+    # Loop through the DataFrame in steps of 20 minutes
+    for i in range(0, len(df) - window + 1, window):
+        # Select the current 20-minute window
+        window_df = df.iloc[i:i + window]
+        
+        # Calculate the midpoint (average) of each candle's open and close prices in the window
+        midpoints = (window_df['open'] + window_df['close']) / 2
+        
+        # Prepare data for linear regression
+        X = np.arange(window).reshape(-1, 1)  # Time steps as input
+        y = midpoints.values.reshape(-1, 1)  # Midpoints as output
+        
+        # Perform linear regression to get the slope
+        reg = LinearRegression().fit(X, y)
+        slope = reg.coef_[0][0]  # Extract the slope
+        
+        # Label the last row in this window as 'Bullish' or 'Bearish' based on slope
+        if slope > 0:
+            labels[i + window - 1] = "Bullish"
+        elif slope < 0:
+            labels[i + window - 1] = "Bearish"
+    
+    # Add the labels to the DataFrame
+    df['Bullish/Bearish'] = labels
     return df
 
 '''
@@ -545,9 +575,11 @@ def label_peaks_troughs(df):
     return df
 
 # Good
-def create_new_csv(original_file_path, df, suffix="_labeled"):
+def create_new_csv(original_file_path, df, suffix="_labeled", directory="labeling"):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     base, ext = os.path.splitext(os.path.basename(original_file_path))
-    new_file_path = f"{base}{suffix}.csv"
+    new_file_path = os.path.join(directory, f"{base}{suffix}.csv")
 
     try:
         df.to_csv(new_file_path, index=False)
@@ -558,7 +590,7 @@ def create_new_csv(original_file_path, df, suffix="_labeled"):
         raise
 
 def main():
-    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\labeling\\TQQQ_minute_data_cleaned.csv'
+    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TSLA_minute_data_cleaned.csv'
     
     # Step 1: Read the advanced CSV
     df = read_csv(original_csv)
@@ -589,7 +621,10 @@ def main():
         # Step 2.4: Detect double top patterns for the day
         day_df = detect_double_top(day_df)
         day_df = detect_double_bottom(day_df)
-        day_df = detect_head_and_shoulders(day_df)
+        # day_df = detect_head_and_shoulders(day_df)
+
+        # Step 2.5: Label Bullish/Bearish
+        day_df = label_bullish_bearish(day_df)
 
         # Append the processed day data to the results list
         daily_results.append(day_df)

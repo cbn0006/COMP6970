@@ -64,7 +64,7 @@ def generate_hourly_charts(stock_data, start_date, end_date):
     current_date = datetime.strptime(start_date, '%Y-%m-%d')
     end_date = datetime.strptime(end_date, '%Y-%m-%d')
     
-    SAVE_DIR = os.path.join(DATA_DIR, "charts", "TQQQ")
+    SAVE_DIR = os.path.join(DATA_DIR, "charts", "test")
     
     # Loop through each day between the start and end dates
     while current_date <= end_date:
@@ -87,10 +87,10 @@ def generate_hourly_charts(stock_data, start_date, end_date):
             ohlc_df = filtered_data[['datetime', 'open', 'high', 'low', 'close']].copy()
             
             # Define where to save the chart
-            save_path = os.path.join(date_dir, f"TQQQ_Candlestick_{time_interval.replace(':', '')}.png")
+            save_path = os.path.join(date_dir, f"TSLA_Candlestick_{time_interval.replace(':', '')}.png")
             
             # Plot and save the candlestick chart
-            plot_candlestick(ohlc_df, f"TQQQ Candlestick Chart for {date_str} {time_interval} - {interval_minutes} mins", save_path)
+            plot_candlestick(ohlc_df, f"TSLA Candlestick Chart for {date_str} {time_interval} - {interval_minutes} mins", save_path)
         
         # Move to the next day
         current_date += timedelta(days=1)
