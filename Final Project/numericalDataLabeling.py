@@ -29,32 +29,24 @@ def read_csv(file_path):
         print(f"An error occurred while reading the file: {e}")
         raise
 
-def is_doji(row, threshold=0.1):
-    """
-    Identifies a Doji candlestick pattern.
-    
-    Parameters:
-        row (pd.Series): A row of the DataFrame.
-        threshold (float): The maximum difference between open and close to be considered a Doji.
-        
-    Returns:
-        bool: True if Doji pattern is identified, else False.
-    """
-    return abs(row['close'] - row['open']) <= threshold * (row['high'] - row['low'])
+# def is_doji(row, threshold=0.1):
+#     return abs(row['close'] - row['open']) <= threshold * (row['high'] - row['low'])
 
 def is_hammer(row):
-    """
-    Identifies a Hammer candlestick pattern.
-    
-    Parameters:
-        row (pd.Series): A row of the DataFrame.
-        
-    Returns:
-        bool: True if Hammer pattern is identified, else False.
-    """
     body = abs(row['close'] - row['open'])
     lower_shadow = row['open'] - row['low'] if row['close'] > row['open'] else row['close'] - row['low']
     return lower_shadow > 2 * body and row['close'] > row['open']
+
+def is_inverted_hammer(row):
+    body = abs(row['close'] - row['open'])
+    upper_shadow = row['high'] - max(row['open'], row['close'])
+    lower_shadow = min(row['open'], row['close']) - row['low']
+    
+    return (
+        upper_shadow > 2 * body and  # Long upper shadow
+        lower_shadow < 0.1 * body and  # Little or no lower shadow
+        row['close'] > row['open']  # Closing above opening (bullish)
+    )
 
 def is_shooting_star(row):
     """
@@ -119,7 +111,94 @@ def is_bearish_engulfing(prev_row, current_row):
            (current_row['open'] > prev_row['close']) and \
            (current_row['close'] < prev_row['open'])
 
-# Needs work
+def is_morning_star(prev_row, mid_row, curr_row, threshold=0.1):
+    return (
+        prev_row['close'] < prev_row['open'] and  # First candle is bearish
+        abs(mid_row['open'] - mid_row['close']) < threshold * (prev_row['high'] - prev_row['low']) and  # Small middle candle
+        curr_row['close'] > curr_row['open'] and  # Third candle is bullish
+        curr_row['close'] > prev_row['close'] and  # Third candle closes above the first candle
+        mid_row['low'] < prev_row['close']  # Middle candle gaps down
+    )
+
+def is_evening_star(prev_row, mid_row, curr_row, threshold=0.1):
+    return (
+        prev_row['close'] > prev_row['open'] and  # First candle is bullish
+        abs(mid_row['open'] - mid_row['close']) < threshold * (prev_row['high'] - prev_row['low']) and  # Small middle candle
+        curr_row['close'] < curr_row['open'] and  # Third candle is bearish
+        curr_row['close'] < prev_row['close'] and  # Third candle closes below the first candle
+        mid_row['high'] > prev_row['close']  # Middle candle gaps up
+    )
+
+def is_hanging_man(row):
+    body = abs(row['close'] - row['open'])
+    lower_shadow = row['low'] - min(row['open'], row['close'])
+    upper_shadow = row['high'] - max(row['open'], row['close'])
+    return (
+        lower_shadow > 2 * body and  # Long lower shadow
+        upper_shadow < 0.1 * body and  # Little or no upper shadow
+        row['close'] < row['open']  # Closing below opening (bearish)
+    )
+
+def is_bullish_harami(prev_row, curr_row):
+    return (
+        prev_row['close'] < prev_row['open'] and  # First candle is bearish
+        curr_row['close'] > curr_row['open'] and  # Second candle is bullish
+        curr_row['close'] < prev_row['open'] and  # Second candle within first candle's body
+        curr_row['open'] > prev_row['close']  # Entirely within the first candle's body
+    )
+
+# Paper 1's Research
+def label_candles(df):
+    candlestick_patterns = []
+    df = df.reset_index(drop=True)
+    
+    for i in range(len(df)):
+        candlestick_pattern = 'None'
+        current_row = df.loc[i]
+        
+        # if is_doji(current_row):
+        #     candlestick_pattern = 'Doji'
+        if is_hammer(current_row):
+            candlestick_pattern = 'Hammer'
+        elif is_inverted_hammer(current_row):
+            candlestick_pattern = 'Inverted Hammer'
+        elif is_shooting_star(current_row):
+            candlestick_pattern = 'Shooting Star'
+        
+        if i > 0:
+            prev_row = df.loc[i - 1]
+            if is_bullish_engulfing_strong(prev_row, current_row):
+                candlestick_pattern = 'Strong Bullish Engulfing'
+            elif is_bullish_engulfing_weak(prev_row, current_row):
+                candlestick_pattern = 'Weak Bullish Engulfing'
+            elif is_bearish_engulfing(prev_row, current_row):
+                candlestick_pattern = 'Bearish Engulfing'
+            elif is_bullish_harami(prev_row, current_row):
+                candlestick_pattern = 'Bullish Harami'
+            elif is_hanging_man(current_row):
+                candlestick_pattern = 'Hanging Man'
+        
+        if i > 1:
+            prev_row = df.loc[i - 2]
+            mid_row = df.loc[i - 1]
+            if is_morning_star(prev_row, mid_row, current_row):
+                candlestick_pattern = 'Morning Star'
+            elif is_evening_star(prev_row, mid_row, current_row):
+                candlestick_pattern = 'Evening Star'
+        
+        candlestick_patterns.append(candlestick_pattern)
+    
+    df['Candlestick Pattern'] = candlestick_patterns
+    return df
+
+'''
+Above is the labeling for candlesticks. This is Wu's research. (Paper 1)
+Below is labeling for chart patterns. This is my own research/contribution.
+Other research includes: Using RL and extremely complex architectures to perform trades (Paper 2).
+Using Object recoginition systems (pattern recognition) to find buy/sell signals in technical charts.
+'''
+
+# Labeling for my own research
 def detect_double_top(df):
     double_top_labels = ['None'] * len(df)
 
@@ -147,6 +226,7 @@ def detect_double_top(df):
     df['Double Top'] = double_top_labels
     return df
 
+# Labeling for my own research
 def detect_double_bottom(df):
     double_bottom_labels = ['None'] * len(df)
 
@@ -175,13 +255,49 @@ def detect_double_bottom(df):
     df['Double Bottom'] = double_bottom_labels
     return df
 
-def is_head_and_shoulders(df, index, lookback=30, tolerance=0.005):
-    print("X")
+# Labeling for my own research
+def detect_head_and_shoulders(df):
+    head_and_shoulders_labels = ['None'] * len(df)
 
+    i = 0
+    while i < len(df) - 1:
+        if df['Support Line'].iloc[i] == '0Support1':
+            start_support_index = i
+
+            j = i + 1
+            while j < len(df):
+                if "Support" in df['Support Line'].iloc[j]:
+                    if df['Support Line'].iloc[j] == '1Support0':
+                        end_support_index = j
+
+                        peaks_in_range = df['Peak/Trough'].iloc[start_support_index + 1:end_support_index]
+                        peak_indices = [k for k, label in peaks_in_range.items() if 'Peak' in label or 'Anomaly' in label]
+
+                        if len(peak_indices) == 1:
+                            peak_index = peak_indices[0] + start_support_index + 1
+
+                            if 0 <= peak_index < len(df) and 'Peak' in df['Peak/Trough'].iloc[peak_index]:
+                                head_peak_height = df['high'].iloc[peak_index]
+
+                                left_peak_height = df['high'].iloc[start_support_index - 1] if start_support_index - 1 >= 0 else -float('inf')
+                                right_peak_height = df['high'].iloc[end_support_index + 1] if end_support_index + 1 < len(df) else -float('inf')
+
+                                if head_peak_height > left_peak_height and head_peak_height > right_peak_height:
+                                    head_and_shoulders_labels[peak_index] = "HeadAndShoulders"
+                        break
+                    else:
+                        break
+                j += 1
+        i += 1
+
+    df['Head And Shoulders'] = head_and_shoulders_labels
+    return df
+
+# Labeling for my own research
 def is_inverse_head_and_shoulders(df, index, lookback=30, tolerance=0.005):
     print("X")
 
-# Good for now
+# Labeling for my own research
 def label_singular_trends(df):
     trends = []
     current_trend = None
@@ -214,6 +330,7 @@ def label_singular_trends(df):
     df['Singular Trend'] = trends
     return df
 
+# Labeling for my own research
 def detect_ceiling_lines(df, threshold=0.001):
     ceiling_lines = ['None'] * len(df)
 
@@ -241,10 +358,11 @@ def detect_ceiling_lines(df, threshold=0.001):
     df['Ceiling Line'] = ceiling_lines
     return df
 
+# Labeling for my own research
 def reverse_support_lines(df, threshold=0.001):
     for i in range(len(df) - 2, 0, -1):
         # Check if the point is labeled as a trough and if it's the lowest within the previous 7 candles
-        if 'Trough' in df['Peak/Trough'].iloc[i] and (i - 7 >= 0) and df['low'].iloc[i] <= df['low'].iloc[max(i - 7, 0):i].min():
+        if 'Trough' in df['Peak/Trough'].iloc[i] and (i - 5 >= 0) and df['low'].iloc[i] <= df['low'].iloc[max(i - 5, 0):i].min():
             support_price = df['low'].iloc[i]
             reverse_test_count = 0
 
@@ -266,10 +384,11 @@ def reverse_support_lines(df, threshold=0.001):
 
     return df
 
+# Labeling for my own research
 def reverse_ceiling_lines(df, threshold=0.001):
     for i in range(len(df) - 2, 0, -1):
         # Check if the point is labeled as a peak and if it's the highest within the previous 7 candles
-        if 'Peak' in df['Peak/Trough'].iloc[i] and (i - 7 >= 0) and df['high'].iloc[i] >= df['high'].iloc[max(i - 7, 0):i].max():
+        if 'Peak' in df['Peak/Trough'].iloc[i] and (i - 5 >= 0) and df['high'].iloc[i] >= df['high'].iloc[max(i - 5, 0):i].max():
             ceiling_price = df['high'].iloc[i]
             reverse_test_count = 0
 
@@ -291,7 +410,7 @@ def reverse_ceiling_lines(df, threshold=0.001):
 
     return df
 
-# Good for now
+# Labeling for my own research
 def detect_support_lines(df, threshold=0.001):
     support_lines = ['None'] * len(df)
 
@@ -315,7 +434,7 @@ def detect_support_lines(df, threshold=0.001):
     df['Support Line'] = support_lines
     return df
 
-# Good for now
+# Labeling for my own research
 def label_plateaus_valleys(df, lookback=5, tolerance=0.0005):
     plateau_valley_labels = ['None'] * len(df)
 
@@ -344,7 +463,7 @@ def label_plateaus_valleys(df, lookback=5, tolerance=0.0005):
     df['Plateau/Valley'] = plateau_valley_labels
     return df
 
-# Good
+# Labeling for my own research
 def label_peaks_troughs(df):
     peak_trough_labels = ['None'] * len(df)
 
@@ -426,36 +545,6 @@ def label_peaks_troughs(df):
     return df
 
 # Good
-def label_candles(df):
-    candlestick_patterns = []
-    df = df.reset_index(drop=True)
-    
-    for i in range(len(df)):
-        candlestick_pattern = 'None'
-        current_row = df.loc[i]
-        
-        if is_doji(current_row):
-            candlestick_pattern = 'Doji'
-        elif is_hammer(current_row):
-            candlestick_pattern = 'Hammer'
-        elif is_shooting_star(current_row):
-            candlestick_pattern = 'Shooting Star'
-        
-        if i > 0:
-            prev_row = df.loc[i - 1]
-            if is_bullish_engulfing_strong(prev_row, current_row):
-                candlestick_pattern = 'Strong Bullish Engulfing'
-            elif is_bullish_engulfing_weak(prev_row, current_row):
-                candlestick_pattern = 'Weak Bullish Engulfing'
-            elif is_bearish_engulfing(prev_row, current_row):
-                candlestick_pattern = 'Bearish Engulfing'
-        
-        candlestick_patterns.append(candlestick_pattern)
-    
-    df['Candlestick Pattern'] = candlestick_patterns
-    return df
-
-# Good
 def create_new_csv(original_file_path, df, suffix="_labeled"):
     base, ext = os.path.splitext(os.path.basename(original_file_path))
     new_file_path = f"{base}{suffix}.csv"
@@ -469,7 +558,7 @@ def create_new_csv(original_file_path, df, suffix="_labeled"):
         raise
 
 def main():
-    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TSLA_minute_data_cleaned.csv'
+    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\labeling\\TQQQ_minute_data_cleaned.csv'
     
     # Step 1: Read the advanced CSV
     df = read_csv(original_csv)
@@ -500,6 +589,7 @@ def main():
         # Step 2.4: Detect double top patterns for the day
         day_df = detect_double_top(day_df)
         day_df = detect_double_bottom(day_df)
+        day_df = detect_head_and_shoulders(day_df)
 
         # Append the processed day data to the results list
         daily_results.append(day_df)
