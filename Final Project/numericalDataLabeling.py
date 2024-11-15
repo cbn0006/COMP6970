@@ -33,37 +33,47 @@ def read_csv(file_path):
 # def is_doji(row, threshold=0.1):
 #     return abs(row['close'] - row['open']) <= threshold * (row['high'] - row['low'])
 
+# Good
 def is_hammer(row):
     body = abs(row['close'] - row['open'])
-    lower_shadow = row['open'] - row['low'] if row['close'] > row['open'] else row['close'] - row['low']
-    return lower_shadow > 2 * body and row['close'] > row['open']
-
-def is_inverted_hammer(row):
-    body = abs(row['close'] - row['open'])
-    upper_shadow = row['high'] - max(row['open'], row['close'])
-    lower_shadow = min(row['open'], row['close']) - row['low']
-    
+    lower_shadow = abs(row['low'] - min(row['open'], row['close']))
+    upper_shadow = abs(row['high'] - max(row['open'], row['close']))
     return (
-        upper_shadow > 2 * body and  # Long upper shadow
-        lower_shadow < 0.1 * body and  # Little or no lower shadow
-        row['close'] > row['open']  # Closing above opening (bullish)
+        lower_shadow > 2 * body and 
+        upper_shadow < 0.1 * body and
+        row['close'] > row['open']
     )
 
-def is_shooting_star(row):
-    """
-    Identifies a Shooting Star candlestick pattern.
-    
-    Parameters:
-        row (pd.Series): A row of the DataFrame.
-        
-    Returns:
-        bool: True if Shooting Star pattern is identified, else False.
-    """
+# Good
+def is_inverted_hammer(row):
     body = abs(row['close'] - row['open'])
-    upper_shadow = row['high'] - row['close'] if row['close'] > row['open'] else row['high'] - row['open']
-    return upper_shadow > 2 * body and row['close'] < row['open']
+    lower_shadow = abs(row['low'] - min(row['open'], row['close']))
+    upper_shadow = abs(row['high'] - max(row['open'], row['close']))
+    return (
+        upper_shadow > 2 * body and
+        lower_shadow < 0.1 * body and
+        row['close'] > row['open']
+    )
 
-def is_bullish_engulfing_strong(prev_row, current_row):
+# Good
+def is_shooting_star(row):
+    body = abs(row['close'] - row['open'])
+    lower_shadow = abs(row['low'] - min(row['open'], row['close']))
+    upper_shadow = abs(row['high'] - max(row['open'], row['close']))
+    return (
+        upper_shadow > 2 * body and
+        lower_shadow < 0.1 * body and
+        row['close'] < row['open']
+    )  
+
+# Good (Technically)
+def is_bullish_engulfing(prev_row, current_row):
+    return (prev_row['close'] < prev_row['open']) and \
+           (current_row['close'] > current_row['open']) and \
+           (current_row['open'] < prev_row['close']) and \
+           (current_row['close'] > prev_row['open'])
+
+'''def is_bullish_engulfing_strong(prev_row, current_row):
     """
     Identifies a Bullish Engulfing candlestick pattern.
     
@@ -94,63 +104,56 @@ def is_bullish_engulfing_weak(prev_row, current_row):
            (current_row['close'] > current_row['open']) and \
            (current_row['open'] > prev_row['close']) and \
            (current_row['close'] > prev_row['open']) and \
-           (current_row['low'] < prev_row['low'])
+           (current_row['low'] < prev_row['low'])'''
 
+# Good (Technically)
 def is_bearish_engulfing(prev_row, current_row):
-    """
-    Identifies a Bearish Engulfing candlestick pattern.
-    
-    Parameters:
-        prev_row (pd.Series): The previous row of the DataFrame.
-        current_row (pd.Series): The current row of the DataFrame.
-        
-    Returns:
-        bool: True if Bearish Engulfing pattern is identified, else False.
-    """
     return (prev_row['close'] > prev_row['open']) and \
            (current_row['close'] < current_row['open']) and \
            (current_row['open'] > prev_row['close']) and \
            (current_row['close'] < prev_row['open'])
 
+# Good
 def is_morning_star(prev_row, mid_row, curr_row, threshold=0.1):
     return (
-        prev_row['close'] < prev_row['open'] and  # First candle is bearish
-        abs(mid_row['open'] - mid_row['close']) < threshold * (prev_row['high'] - prev_row['low']) and  # Small middle candle
-        curr_row['close'] > curr_row['open'] and  # Third candle is bullish
-        curr_row['close'] > prev_row['close'] and  # Third candle closes above the first candle
-        mid_row['low'] < prev_row['close']  # Middle candle gaps down
+        prev_row['close'] < prev_row['open'] and
+        curr_row['open'] < curr_row['close'] and
+        abs(mid_row['open'] - mid_row['close']) < threshold * (prev_row['high'] - prev_row['low']) and
+        curr_row['close'] > prev_row['open'] - (threshold * abs(prev_row['close'] - prev_row['open']))
     )
 
+# Good
 def is_evening_star(prev_row, mid_row, curr_row, threshold=0.1):
     return (
-        prev_row['close'] > prev_row['open'] and  # First candle is bullish
-        abs(mid_row['open'] - mid_row['close']) < threshold * (prev_row['high'] - prev_row['low']) and  # Small middle candle
-        curr_row['close'] < curr_row['open'] and  # Third candle is bearish
-        curr_row['close'] < prev_row['close'] and  # Third candle closes below the first candle
-        mid_row['high'] > prev_row['close']  # Middle candle gaps up
+        prev_row['close'] > prev_row['open'] and
+        curr_row['open'] > curr_row['close'] and
+        abs(mid_row['open'] - mid_row['close']) < threshold * (prev_row['high'] - prev_row['low']) and
+        curr_row['close'] < prev_row['open'] + (threshold * abs(prev_row['close'] - prev_row['open']))
     )
 
+# Good
 def is_hanging_man(row):
     body = abs(row['close'] - row['open'])
-    lower_shadow = row['low'] - min(row['open'], row['close'])
-    upper_shadow = row['high'] - max(row['open'], row['close'])
+    lower_shadow = abs(row['low'] - min(row['open'], row['close']))
+    upper_shadow = abs(row['high'] - max(row['open'], row['close']))
     return (
-        lower_shadow > 2 * body and  # Long lower shadow
-        upper_shadow < 0.1 * body and  # Little or no upper shadow
-        row['close'] < row['open']  # Closing below opening (bearish)
+        lower_shadow > 2 * body and
+        upper_shadow < 0.1 * body and
+        row['close'] < row['open']
     )
 
+# Good
 def is_bullish_harami(prev_row, curr_row):
     return (
-        prev_row['close'] < prev_row['open'] and  # First candle is bearish
-        curr_row['close'] > curr_row['open'] and  # Second candle is bullish
-        curr_row['close'] < prev_row['open'] and  # Second candle within first candle's body
-        curr_row['open'] > prev_row['close']  # Entirely within the first candle's body
+        prev_row['close'] < prev_row['open'] and
+        curr_row['close'] > curr_row['open'] and
+        curr_row['close'] < prev_row['open'] and
+        curr_row['open'] > prev_row['close']
     )
 
 # Paper 1's Research
 def label_candles(df):
-    candlestick_patterns = []
+    candlestick_patterns = ['None'] * len(df)
     df = df.reset_index(drop=True)
     
     for i in range(len(df)):
@@ -168,10 +171,12 @@ def label_candles(df):
         
         if i > 0:
             prev_row = df.loc[i - 1]
-            if is_bullish_engulfing_strong(prev_row, current_row):
-                candlestick_pattern = 'Strong Bullish Engulfing'
-            elif is_bullish_engulfing_weak(prev_row, current_row):
-                candlestick_pattern = 'Weak Bullish Engulfing'
+            if is_bullish_engulfing(prev_row, current_row):
+                candlestick_pattern = 'Bullish Engulfing'
+            # if is_bullish_engulfing_strong(prev_row, current_row):
+            #     candlestick_pattern = 'Strong Bullish Engulfing'
+            # elif is_bullish_engulfing_weak(prev_row, current_row):
+            #     candlestick_pattern = 'Weak Bullish Engulfing'
             elif is_bearish_engulfing(prev_row, current_row):
                 candlestick_pattern = 'Bearish Engulfing'
             elif is_bullish_harami(prev_row, current_row):
@@ -183,11 +188,12 @@ def label_candles(df):
             prev_row = df.loc[i - 2]
             mid_row = df.loc[i - 1]
             if is_morning_star(prev_row, mid_row, current_row):
-                candlestick_pattern = 'Morning Star'
+                candlestick_patterns[i - 1] = 'Morning Star'
             elif is_evening_star(prev_row, mid_row, current_row):
-                candlestick_pattern = 'Evening Star'
-        
-        candlestick_patterns.append(candlestick_pattern)
+                candlestick_patterns[i - 1] = 'Evening Star'
+
+        if candlestick_patterns[i] == 'None':
+            candlestick_patterns[i] = candlestick_pattern
     
     df['Candlestick Pattern'] = candlestick_patterns
     return df
