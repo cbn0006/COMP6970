@@ -14,3 +14,14 @@ To use the Final Project in its entirety, you are going to need to:
 - run numericalAdvancedStats.py (ensuring that the right csv is being pointed to)
 - run all cells in the COMP 6970 Final Project.ipynb notebook.
 - You can also just load in the saved weights from the Model Weights directory to save training time because training takes roughly 2 hours
+
+
+Important things to Note:
+- getStockData.py creates "{symbol}_minute_data_raw.csv"
+- cleaning.py turns "{symbol}_minute_data_raw.csv" into "{symbol}_minute_data_cleaned.csv"
+  - This numerical csv data is what goes into the paper2.ipynb
+- numericalDataLabeling.py turns "{symbol}_minute_data_cleaned.csv" into "{symbol}_minute_data_cleaned_labeld.csv"
+- 20MinuteVisuals.py turns "{symbol}_minute_date_cleaned_labeled.csv" into labeled images
+  - This image data is what goes into paper1.ipynb and the final project ipynb
+- numericalAdvancedStats.py turns "{symbol}_minute_data_cleaned.csv" into "{symbol}_minute_data_cleaned_advanced.csv"
+  - This numerical csv data is what goes into the final project ipynb for the MS-DDQN implementation
