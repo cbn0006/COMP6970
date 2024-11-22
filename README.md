@@ -17,6 +17,7 @@ To use the Final Project in its entirety, you are going to need to:
 
 
 Important things to Note:
+- If you decide to run any part of the process above multiple times, delete all the files created by the overlapping process because this code is not meant to handle overlapping runs.
 - getStockData.py creates "{symbol}_minute_data_raw.csv"
 - cleaning.py turns "{symbol}_minute_data_raw.csv" into "{symbol}_minute_data_cleaned.csv"
   - This numerical csv data is what goes into the paper2.ipynb
