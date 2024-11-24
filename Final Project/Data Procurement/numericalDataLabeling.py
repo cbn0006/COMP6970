@@ -560,7 +560,7 @@ def label_peaks_troughs(df):
     df['Peak/Trough'] = peak_trough_labels
     return df
 
-def create_new_csv(original_file_path, df, suffix="_labeled", directory="labeling"):
+def create_new_csv(original_file_path, df, suffix="_labeled", directory="../labeling"):
     '''
     Method to create a new csv with labeled info.
     '''
@@ -578,7 +578,8 @@ def create_new_csv(original_file_path, df, suffix="_labeled", directory="labelin
         raise
 
 def main():
-    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TQQQ_minute_data_cleaned.csv'
+    symbol = 'AAPL'
+    original_csv = os.path.join("../labeling/", f"{symbol}_minute_data_cleaned.csv")
     
     # Step 1: Read the advanced CSV
     df = read_csv(original_csv)

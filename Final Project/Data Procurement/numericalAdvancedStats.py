@@ -121,7 +121,7 @@ def create_new_csv(original_file_path, df, suffix="_advanced"):
     
     new_file_name = f"{name}{suffix}{ext}"
     
-    output_dir = os.path.join(".", "labeling")
+    output_dir = "../labeling"
     
     os.makedirs(output_dir, exist_ok=True)
     
@@ -136,7 +136,7 @@ def create_new_csv(original_file_path, df, suffix="_advanced"):
         raise
 
 def main():
-    original_csv = 'D:\\codyb\\COMP6970_Final_Project_Data\\TQQQ_minute_data_cleaned.csv'
+    original_csv = '../labeling/AAPL_minute_data_cleaned.csv'
     
     # Step 1: Read the original CSV
     df = read_csv(original_csv)

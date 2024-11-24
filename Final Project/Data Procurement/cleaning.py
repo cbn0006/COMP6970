@@ -52,8 +52,8 @@ def filter_trading_hours(input_file, start_time_str="08:10:00", end_time_str="15
         raise
 
 if __name__ == "__main__":
-    SAVE_DIR = "D:\\codyb\\COMP6970_Final_Project_Data"
-    symbol = "SPXL"
+    SAVE_DIR = "../labeling"
+    symbol = "AAPL"
     input_filename = os.path.join(SAVE_DIR, f"{symbol}_minute_data_raw.csv")
 
     print(f"Filtering trading hours in {input_filename}...")

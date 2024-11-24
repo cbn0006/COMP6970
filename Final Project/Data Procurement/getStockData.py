@@ -83,15 +83,15 @@ if __name__ == "__main__":
     POLYGON_API_KEY = "nFz8hqkcTGmJY9iXsAx9wtcNrw_pst7x"
     POLYGON_BASE_URL = "https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
 
-    SAVE_DIR = "D:\\codyb\\COMP6970_Final_Project_Data"
+    SAVE_DIR = "../labeling/"
 
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
 
     # Desired stock ticker and dates.
-    symbols = ["NVDU"]
+    symbols = ["AAPL"]
     start_date = "2023-01-01"
-    end_date = "2024-11-01"
+    end_date = "2023-02-01"
     
     for symbol in symbols:
         filename = os.path.join(SAVE_DIR, f"{symbol}_minute_data_raw.csv")
