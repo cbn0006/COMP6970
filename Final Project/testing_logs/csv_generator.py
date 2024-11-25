@@ -7,8 +7,8 @@ input_csv = "results2.csv"  # Replace with your file path
 output_csv = "1.csv"
 
 # Define new column names
-new_col1_name = "SPXL18"  # Set your desired column name
-new_col2_name = "SPXL_B&H"  # Set your desired column name
+new_col1_name = "TQQQ18"  # Set your desired column name
+new_col2_name = "TQQQ_B&H"  # Set your desired column name
 
 # Read the input CSV file
 df = pd.read_csv(input_csv)
